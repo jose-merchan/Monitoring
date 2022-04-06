@@ -1,0 +1,106 @@
+Description: "Create an EC2 instance to host Prometheus"
+Parameters:
+
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: 'Ubuntu AMI for us-east-1'
+    Default: 'ami-04505e74c0741db8d'
+    # aws ec2 describe-images  --filters \
+    # Name=name,Values=ubuntu/images/hvm-ssd/ubuntu*  
+    # --query 'Images[*].[ImageId,CreationDate]' 
+    # --output text  | sort -k2 -r  | head -n1
+  VpcId:
+    Type: String
+    Description: VPC id
+    Default: vpc-0f8d47edbdac97a1f
+    # aws ec2 describe-vpcs
+  SubnetId:
+    Type: String
+    Description: Subnet in which to launch an EC2
+    Default: subnet-03cc4103967da49de
+  InstanceType:
+    Type: String
+    Description: Choosing  t2 micro because it is free
+    Default: t2.micro
+  KeyName:
+    Description: SSH Keypair to login to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: Prometheus
+
+Resources:
+  DemoInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties: 
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          SubnetId: !Ref SubnetId
+          GroupSet: 
+            - !Ref DemoSecurityGroup
+      Tags:
+        - Key: Name
+          Value: prometheus-server
+        - Key: Stage
+          Value: Dev
+  
+  Exporter:
+    Type: 'AWS::EC2::Instance'
+    Properties: 
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          AssociatePublicIpAddress: true
+          DeleteOnTermination: true
+          SubnetId: !Ref SubnetId
+          GroupSet: 
+            - !Ref DemoSecurityGroup
+      Tags:
+        - Key: Name
+          Value: Exporter
+        - Key: Stage
+          Value: Dev
+  
+  DemoSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VpcId
+      GroupDescription: Prometheus Ports
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '9090'
+          ToPort: '9090'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '9093'
+          ToPort: '9093'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '9100'
+          ToPort: '9100'
+          CidrIp: '0.0.0.0/0'
+      Tags:
+        - Key: Name
+          Value: prometheus-server
+
+Outputs:
+  PublicIP1:
+    Description: Instance IP 
+    Value: !GetAtt DemoInstance.PublicIp
+    Export:
+      Name: !Sub ${AWS::StackName}-ServerIP
+  
+  PublicIP2:
+    Description: Instance IP 
+    Value: !GetAtt Exporter.PublicIp
+    Export:
+      Name: !Sub ${AWS::StackName}-ExporterIP

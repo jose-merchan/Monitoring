@@ -1,0 +1,150 @@
+---
+- name: Provision Prometheus on EC2 instance
+  hosts: Server
+  become: True
+  vars:
+    etc : "/etc/prometheus"
+    lib : "/var/lib/prometheus"
+    usr : '/usr/local/bin'
+  tasks:
+    
+    - name: Create system user for prometheus
+      user:
+        name: prometheus
+        create_home: no 
+    
+    - name: Create Prometheus folders
+      file:
+        path:  "{{item}}"
+        state: directory
+      loop: ["{{ etc }}", "{{ lib }}"]
+      
+    - name: Download and unarchive Prometheus
+      unarchive:
+        src: https://github.com/prometheus/prometheus/releases/download/v2.19.0/prometheus-2.19.0.linux-amd64.tar.gz
+        dest: ~/
+        remote_src: yes
+    
+    - name: Copy Directories
+      copy:
+        src: "{{item.src}}"
+        dest: "{{item.dest}}"
+        remote_src: yes
+        owner: "{{item.owner}}"
+      with_items:
+      - { src: '~/prometheus-2.19.0.linux-amd64/prometheus',dest: "{{ usr }}", owner: 'prometheus'}
+      - { src: '~/prometheus-2.19.0.linux-amd64/promtool',dest: "{{ usr }}", owner: 'prometheus'}
+      - { src: '~/prometheus-2.19.0.linux-amd64/consoles',dest: "{{ etc }}", owner: 'prometheus'}
+      - { src: '~/prometheus-2.19.0.linux-amd64/console_libraries',dest: "{{ etc }}", owner: 'prometheus'}
+    
+    - name: Copy Prometheus Config and Service definition
+      copy:
+        src: "{{item.src}}"
+        dest: "{{item.dest}}"
+      with_items:
+      - { src: 'prometheus.yml',dest: "{{ etc }}"}
+      - { src: 'prometheus.service',dest: "/etc/systemd/system/"}
+    
+    - name: Change Directory permissions
+      file:
+        dest: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+        mode: 0755
+        recurse: yes
+      with_items: 
+        - "{{ etc }}"
+        - "/etc/prometheus/consoles"
+        - "/etc/prometheus/console_libraries"
+        - "{{ lib }}"
+    
+    - name: Change Files permissions
+      file:
+        dest: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+        mode: 0755
+      with_items: 
+        - "/usr/local/bin/prometheus"
+        - "/usr/local/bin/promtool"
+
+    - name: Daemon Reload
+      systemd:
+        daemon_reexec: yes
+    
+    - name: Enable Prometheus
+      systemd:
+        name: prometheus
+        enabled: yes
+
+    - name: Start Prometheus 
+      systemd:
+        name: prometheus
+        state: started
+
+- name: Configure Prometheus Exporter
+  hosts: Exporter
+  become: True
+  tasks:
+      
+      - name: Create system user for prometheus
+        user:
+          name: node_exporter
+          create_home: no
+    
+      - name: Download and unarchive Exporter binaries
+        unarchive:
+          src: https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+          dest: ~/
+          remote_src: yes        
+      - name: Copy Directories
+        copy:
+          src: "{{item.src}}"
+          dest: "{{item.dest}}"
+          remote_src: yes
+          owner: "{{item.owner}}"
+        with_items:
+        - { src: '~/node_exporter-1.0.1.linux-amd64/node_exporter',
+          dest: "/usr/local/bin/node_exporter", owner: 'node_exporter'}
+      
+      - name: Copy Prometheus Config and Service definition
+        copy:
+          src: "{{item.src}}"
+          dest: "{{item.dest}}"
+        with_items:
+        - { src: 'node-exporter.service',dest: "/etc/systemd/system"}
+      
+      
+      - name: Change Files permissions
+        file:
+          dest: "{{ item }}"
+          owner: node_exporter
+          group: node_exporter
+          mode: 0755
+        with_items: 
+          - "/usr/local/bin/node_exporter"
+
+      - name: Daemon Reload
+        systemd:
+          daemon_reexec: yes
+      
+      - name: Enable Prometheus
+        systemd:
+          name: node-exporter
+          enabled: yes
+
+      - name: Start Prometheus 
+        systemd:
+          name: node-exporter
+          state: started
+
+        
+
+      
+
+
+
+
+
+
+      

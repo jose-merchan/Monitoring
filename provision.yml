@@ -95,12 +95,12 @@ Resources:
 Outputs:
   PublicIP1:
     Description: Instance IP 
-    Value: !GetAtt DemoInstance.PublicIp
+    Value: !GetAtt DemoInstance.PublicDnsName
     Export:
       Name: !Sub ${AWS::StackName}-ServerIP
   
   PublicIP2:
     Description: Instance IP 
-    Value: !GetAtt Exporter.PublicIp
+    Value: !GetAtt Exporter.PublicDnsName
     Export:
       Name: !Sub ${AWS::StackName}-ExporterIP

@@ -5,3 +5,4 @@ Prometheus.cer
 inventory.ini
 prometheus-ec2read.service
 alertmanager.yml
+prometheus-ec2read.yml
